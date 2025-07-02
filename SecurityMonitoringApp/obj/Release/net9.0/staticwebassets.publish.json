@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "IArGjzSR3KIpCxxoI6PMGsKbmTGiRc0GqbPOcqTbvVI=",
+  "Source": "SecurityMonitoringApp",
+  "BasePath": "_content/SecurityMonitoringApp",
+  "Mode": "Default",
+  "ManifestType": "Publish",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}

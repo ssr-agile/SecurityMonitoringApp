@@ -1,0 +1,10 @@
+C:\Users\Sriram.s\Documents\GitHub\SecurityMonitoringApp\SecurityMonitoringApp\publish\SecurityMonitoringApp.exe
+C:\Users\Sriram.s\Documents\GitHub\SecurityMonitoringApp\SecurityMonitoringApp\publish\appsettings.Development.json
+C:\Users\Sriram.s\Documents\GitHub\SecurityMonitoringApp\SecurityMonitoringApp\publish\appsettings.json
+C:\Users\Sriram.s\Documents\GitHub\SecurityMonitoringApp\SecurityMonitoringApp\publish\SecurityMonitoringApp.dll
+C:\Users\Sriram.s\Documents\GitHub\SecurityMonitoringApp\SecurityMonitoringApp\publish\SecurityMonitoringApp.deps.json
+C:\Users\Sriram.s\Documents\GitHub\SecurityMonitoringApp\SecurityMonitoringApp\publish\SecurityMonitoringApp.runtimeconfig.json
+C:\Users\Sriram.s\Documents\GitHub\SecurityMonitoringApp\SecurityMonitoringApp\publish\SecurityMonitoringApp.pdb
+C:\Users\Sriram.s\Documents\GitHub\SecurityMonitoringApp\SecurityMonitoringApp\publish\Gelf.Extensions.Logging.dll
+C:\Users\Sriram.s\Documents\GitHub\SecurityMonitoringApp\SecurityMonitoringApp\publish\Microsoft.AspNetCore.OpenApi.dll
+C:\Users\Sriram.s\Documents\GitHub\SecurityMonitoringApp\SecurityMonitoringApp\publish\Microsoft.OpenApi.dll

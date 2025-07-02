@@ -1,0 +1,14 @@
+FROM wazuh/wazuh-indexer:4.7.0
+
+# Switch to root for setup
+USER root
+
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+COPY init-wazuh-indexer.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/init-wazuh-indexer.sh
+
+# Switch back to wazuh-indexer user
+USER wazuh-indexer
+
+ENTRYPOINT ["/usr/local/bin/init-wazuh-indexer.sh"]

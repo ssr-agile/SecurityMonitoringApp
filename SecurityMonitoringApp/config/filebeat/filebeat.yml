@@ -1,0 +1,59 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/ossec/logs/alerts/alerts.json
+  json.keys_under_root: true
+  json.overwrite_keys: true
+  fields:
+    logtype: wazuh-alerts
+  fields_under_root: true
+  exclude_lines: ['^$']
+  multiline.pattern: '^\{'
+  multiline.negate: true
+  multiline.match: after
+
+output.elasticsearch:
+  hosts: ["http://wazuh.indexer:9200"]
+  protocol: "http"
+  index: "wazuh-alerts-%{+yyyy.MM.dd}"
+
+setup.template.enabled: true
+setup.template.name: "wazuh"
+setup.template.pattern: "wazuh-alerts-*"
+setup.template.overwrite: true
+setup.template.settings:
+  index:
+    number_of_shards: 1
+    number_of_replicas: 0
+    codec: best_compression
+    refresh_interval: 5s
+
+setup.ilm.enabled: false
+
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /usr/share/filebeat/logs
+  name: filebeat
+  keepfiles: 7
+  permissions: 0600
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_fields:
+      target: ''
+      fields:
+        event.module: wazuh
+  - timestamp:
+      field: timestamp
+      layouts:
+        - '2006-01-02T15:04:05.000Z'
+        - '2006-01-02T15:04:05Z'
+      test:
+        - '2023-07-02T15:04:05.000Z'
+
+# Clean configuration without conflicting paths
+path.data: /usr/share/filebeat/data
+path.logs: /usr/share/filebeat/logs

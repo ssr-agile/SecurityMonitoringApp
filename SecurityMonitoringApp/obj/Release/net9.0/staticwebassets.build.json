@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "11MxYqoLPWQpKC01Bsj+bMqylUohMh1HB0+6txN6uSc=",
+  "Source": "SecurityMonitoringApp",
+  "BasePath": "_content/SecurityMonitoringApp",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}
