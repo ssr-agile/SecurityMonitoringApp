@@ -8,11 +8,17 @@ filebeat.inputs:
     fields:
       logtype: wazuh-alerts
     fields_under_root: true
+    multiline.pattern: '^{'
+    multiline.negate: true
+    multiline.match: after
 
 output.elasticsearch:
   hosts: ["http://wazuh.indexer:9200"]
   protocol: "http"
   index: "wazuh-alerts-%{+yyyy.MM.dd}"
+  username: ""
+  password: ""
+  ssl.verification_mode: "none"
 
 setup.template.enabled: true
 setup.template.name: "wazuh"
@@ -43,6 +49,11 @@ processors:
       fields:
         event.module: wazuh
 
-# Use the mounted volume path
+# Fixed data path to avoid conflicts
 path.data: /var/lib/filebeat
 path.logs: /var/log/filebeat
+
+# Filebeat registry settings
+filebeat.registry.path: /var/lib/filebeat/registry
+filebeat.registry.file_permissions: 0600
+filebeat.registry.flush: 1s

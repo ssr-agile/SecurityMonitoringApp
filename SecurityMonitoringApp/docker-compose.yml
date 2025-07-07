@@ -1,41 +1,19 @@
-services:
-  # Your .NET App
-  security-monitoring-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8080:80"
-    networks:
-      - monitoring_net
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - Wazuh__Host=http://wazuh.manager:55000
-      - Wazuh__User=wazuh-wui
-      - Wazuh__Password=MyS3cr37P450r.*-
-      - Graylog__Host=graylog
-      - Graylog__Port=12201
-    depends_on:
-      wazuh.manager:
-        condition: service_healthy
-      graylog:
-        condition: service_healthy
-    restart: unless-stopped
+# version: '3.8'
 
-  # Wazuh Indexer (OpenSearch) - Simplified without security
+services:
+  # Wazuh indexer (OpenSearch)
   wazuh.indexer:
-    image: opensearchproject/opensearch:2.4.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.2
+    container_name: wazuh.indexer
     hostname: wazuh.indexer
     environment:
       - cluster.name=wazuh-cluster
       - node.name=wazuh.indexer
       - discovery.type=single-node
       - bootstrap.memory_lock=true
-      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
-      - "DISABLE_INSTALL_DEMO_CONFIG=true"
-      - "DISABLE_SECURITY_PLUGIN=true"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
       - network.host=0.0.0.0
-      - http.port=9200
     ulimits:
       memlock:
         soft: -1
@@ -43,137 +21,159 @@ services:
       nofile:
         soft: 65536
         hard: 65536
+    volumes:
+      - wazuh-indexer-data:/usr/share/elasticsearch/data
     ports:
       - "9201:9200"
     networks:
-      - monitoring_net
-    volumes:
-      - wazuh-indexer-data:/usr/share/opensearch/data
+      - wazuh
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 30
       start_period: 60s
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-          cpus: '2'
 
-  # Wazuh Manager (Simplified - no Filebeat integration)
+  # Wazuh manager
   wazuh.manager:
     image: wazuh/wazuh-manager:4.7.0
+    container_name: wazuh.manager
     hostname: wazuh.manager
-    user: root
     environment:
       - INDEXER_URL=http://wazuh.indexer:9200
       - INDEXER_USERNAME=""
       - INDEXER_PASSWORD=""
-      - API_USERNAME=wazuh-wui
-      - API_PASSWORD=MyS3cr37P450r.*-
+      - FILEBEAT_SSL_VERIFICATION_MODE=none
+      - SSL_CERTIFICATE_AUTHORITIES=""
+      - SSL_CERTIFICATE=""
+      - SSL_KEY=""
+    volumes:
+      - wazuh-manager-config:/wazuh-config-mount/etc/ossec
+      - wazuh-manager-logs:/var/ossec/logs
+      - wazuh-manager-queue:/var/ossec/queue
+      - wazuh-manager-var-multigroups:/var/ossec/var/multigroups
+      - wazuh-manager-integrations:/var/ossec/integrations
+      - wazuh-manager-active-response:/var/ossec/active-response/bin
+      - wazuh-manager-agentless:/var/ossec/agentless
+      - wazuh-manager-wodles:/var/ossec/wodles
+      - filebeat-etc:/etc/filebeat
+      - filebeat-var:/var/lib/filebeat
+      - ./config/filebeat/filebeat.yml:/etc/filebeat/filebeat.yml
+    command: >
+      bash -c "
+        until [ -f /etc/filebeat/filebeat.yml ]; do sleep 1; done &&
+        until [ -d /var/lib/filebeat/registry ]; do sleep 1; done &&
+        rm -f /var/lib/filebeat/registry/.filebeat.lock &&
+        /init
+      "
     ports:
       - "1514:1514"
       - "1515:1515"
       - "514:514/udp"
-      - "55000:55000"
-    networks:
-      - monitoring_net
-    volumes:
-      - wazuh_api_configuration:/var/ossec/api/configuration
-      - wazuh_etc:/var/ossec/etc
-      - wazuh_logs:/var/ossec/logs
-      - wazuh_queue:/var/ossec/queue
-      - wazuh_var_multigroups:/var/ossec/var/multigroups
-      - wazuh_integrations:/var/ossec/integrations
-      - wazuh_active_response:/var/ossec/active-response/bin
-      - wazuh_agentless:/var/ossec/agentless
-      - wazuh_wodles:/var/ossec/wodles
-      # Share logs with Filebeat
-      - wazuh_shared_logs:/var/ossec/logs/alerts
-      - ./config/wazuh-manager/ossec.conf:/var/ossec/etc/ossec.conf:ro
-    command: >
-        bash -c "
-        mkdir -p /var/ossec/logs/archives/2025 &&
-        chown -R wazuh:wazuh /var/ossec &&
-        /init
-        "
+      - "56000:55000"
     depends_on:
       wazuh.indexer:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:55000 || exit 1"]
+      test: ["CMD-SHELL", "curl -f -k https://localhost:56000 || exit 1"]
       interval: 30s
       timeout: 60s
       retries: 30
       start_period: 120s
-
-  # Separate Filebeat Container
-  filebeat:
-    image: docker.elastic.co/beats/filebeat:8.8.0
-    hostname: filebeat
-    user: root
     networks:
-      - monitoring_net
-    volumes:
-      - ./config/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-      - wazuh_logs:/var/ossec/logs:ro  # Share entire logs directory
-      - wazuh_shared_logs:/var/ossec/logs/alerts:ro
-      - filebeat_data:/usr/share/filebeat/data
-    environment:
-      - ELASTICSEARCH_HOSTS=http://wazuh.indexer:9200
-      - STRICT_PERMS=false
-    depends_on:
-      wazuh.manager:
-        condition: service_healthy
-      wazuh.indexer:
-        condition: service_healthy
-    restart: unless-stopped
-    command: filebeat -e -strict.perms=false
+      - wazuh
 
-  # Wazuh Dashboard
+  # Wazuh dashboard
   wazuh.dashboard:
     image: wazuh/wazuh-dashboard:4.7.0
+    container_name: wazuh.dashboard
     hostname: wazuh.dashboard
     environment:
       - INDEXER_USERNAME=""
       - INDEXER_PASSWORD=""
       - WAZUH_API_URL=https://wazuh.manager
+      - DASHBOARD_USERNAME=kibanaserver
+      - DASHBOARD_PASSWORD=kibanaserver
       - API_USERNAME=wazuh-wui
       - API_PASSWORD=MyS3cr37P450r.*-
       - OPENSEARCH_HOSTS=http://wazuh.indexer:9200
+      - SERVER_SSL_ENABLED=false
       - OPENSEARCH_SSL_VERIFICATIONMODE=none
+    volumes:
+      - wazuh-dashboard-config:/usr/share/wazuh-dashboard/data/wazuh/config
+      - wazuh-dashboard-custom:/usr/share/wazuh-dashboard/plugins/wazuh/public/assets/custom
     ports:
-      - "5601:5601"
-    networks:
-      - monitoring_net
+      - "5601:5601"  # Changed from 443 to avoid SSL issues
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601 || exit 1"]
+      interval: 30s
+      timeout: 60s
+      retries: 30
     depends_on:
       wazuh.manager:
         condition: service_healthy
       wazuh.indexer:
         condition: service_healthy
+    networks:
+      - wazuh
 
-  # Graylog (Logging)
+  # MongoDB for Graylog
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - wazuh
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+  # Elasticsearch for Graylog
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.2
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+      - network.host=0.0.0.0
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - wazuh
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  # Graylog
   graylog:
     image: graylog/graylog:5.1
+    container_name: graylog
     environment:
       - GRAYLOG_PASSWORD_SECRET=somepasswordpepper
       - GRAYLOG_ROOT_PASSWORD_SHA2=8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
       - GRAYLOG_HTTP_EXTERNAL_URI=http://127.0.0.1:9000/
       - GRAYLOG_ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - GRAYLOG_MONGODB_URI=mongodb://mongodb:27017/graylog
-    networks:
-      - monitoring_net
     depends_on:
       mongodb:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy 
+    volumes:
+      - graylog-data:/usr/share/graylog/data
     ports:
       - "9000:9000"
       - "12201:12201/udp"
-    volumes:
-      - graylog_data:/usr/share/graylog/data
+    networks:
+      - wazuh
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9000/api/system/lbstatus || exit 1"]
       interval: 30s
@@ -181,64 +181,50 @@ services:
       retries: 5
       start_period: 120s
 
-  # Graylog Dependencies
-  mongodb:
-    image: mongo:6.0
-    volumes:
-      - mongo_data:/data/db
-    networks:
-      - monitoring_net
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 10s
-      retries: 20
-
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2
+  # Your ASP.NET Core app
+  security-monitoring-app:
+    build: .
+    container_name: security-monitoring-app
     environment:
-      - "discovery.type=single-node"
-      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
-      - "network.host=0.0.0.0"
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - Wazuh__Host=http://wazuh.manager:56000
+      - Wazuh__User=wazuh-wui
+      - Wazuh__Password=MyS3cr37P450r.*-
+      - Graylog__Host=graylog
+      - Graylog__Port=12201
     ports:
-      - "9200:9200"
+      - "8080:80"
+    depends_on:
+      graylog:
+        condition: service_healthy
+      wazuh.manager:
+        condition: service_healthy
+    restart: unless-stopped
     networks:
-      - monitoring_net
-    volumes:
-      - es_data:/usr/share/elasticsearch/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9200"]
-      interval: 10s
-      timeout: 10s
-      retries: 20
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    deploy:
-        resources:
-          limits:
-            memory: 2G
-            cpus: '1'
-
-networks:
-  monitoring_net:
-    driver: bridge
-    name: monitoring_network
+      - wazuh
 
 volumes:
-  wazuh_api_configuration:
-  wazuh_etc:
-  wazuh_logs:
-  wazuh_queue:
-  wazuh_var_multigroups:
-  wazuh_integrations:
-  wazuh_active_response:
-  wazuh_agentless:
-  wazuh_wodles:
-  wazuh_shared_logs:  # New shared volume for Filebeat
-  filebeat_data:      # Separate Filebeat data volume
   wazuh-indexer-data:
-  mongo_data:
-  es_data:
-  graylog_data:
+  wazuh-manager-config:
+  wazuh-manager-logs:
+  wazuh-manager-queue:
+  wazuh-manager-var-multigroups:
+  wazuh-manager-integrations:
+  wazuh-manager-active-response:
+  wazuh-manager-agentless:
+  wazuh-manager-wodles:
+  wazuh-dashboard-config:
+  wazuh-dashboard-custom:
+  filebeat-etc:
+  filebeat-var:
+  mongodb-data:
+  elasticsearch-data:
+  graylog-data:
+
+networks:
+  wazuh:
+    driver: bridge
+
+
+

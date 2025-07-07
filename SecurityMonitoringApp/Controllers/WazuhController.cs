@@ -18,7 +18,7 @@ namespace SecurityMonitoringApp.Controllers
             _graylog = graylog;
         }
 
-        [HttpGet("/graylog/health")]
+        [HttpGet("graylog/health")]
         public async Task<IActionResult> GetGraylogHealth()
         {
             _logger.LogInformation("Health check requested");
@@ -36,7 +36,7 @@ namespace SecurityMonitoringApp.Controllers
             });
         }
 
-        [HttpGet("/wazuh/health")]
+        [HttpGet("wazuh/health")]
         public async Task<IActionResult> GetWazuhHealth()
         {
             _logger.LogInformation("Health check requested");

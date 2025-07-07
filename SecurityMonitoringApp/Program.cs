@@ -58,7 +58,10 @@ app.MapGet("/", () => {
     {
         Message = "Security Monitoring App is Running!",
         Timestamp = DateTime.UtcNow,
-        Environment = app.Environment.EnvironmentName
+        Environment = app.Environment.EnvironmentName,
+        graylogHost,
+        graylogPort,
+        isGrayWorks = !string.IsNullOrEmpty(graylogHost) && graylogPort > 0
     });
 });
 
