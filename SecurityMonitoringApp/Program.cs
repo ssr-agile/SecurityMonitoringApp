@@ -5,11 +5,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services
 builder.Services.AddHttpClient<GraylogService>();
-builder.Services.AddHttpClient<WazuhService>();  // Add this missing line
+builder.Services.AddHttpClient<WazuhService>();
 
 // Register services
 builder.Services.AddScoped<GraylogService>();
-builder.Services.AddScoped<WazuhService>();      // Add this missing line
+builder.Services.AddScoped<WazuhService>();
 
 builder.Services.AddControllers();
 
@@ -52,16 +52,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors();
 
-// Add some basic endpoints for testing
+// basic endpoints for testing
 app.MapGet("/", () => {
     return Results.Ok(new
     {
         Message = "Security Monitoring App is Running!",
         Timestamp = DateTime.UtcNow,
-        Environment = app.Environment.EnvironmentName,
-        graylogHost,
-        graylogPort,
-        isGrayWorks = !string.IsNullOrEmpty(graylogHost) && graylogPort > 0
+        Environment = app.Environment.EnvironmentName
     });
 });
 

@@ -44,6 +44,7 @@ services:
       - INDEXER_USERNAME=""
       - INDEXER_PASSWORD=""
       - FILEBEAT_SSL_VERIFICATION_MODE=none
+      # - FILEBEAT_ENABLED=false
       - SSL_CERTIFICATE_AUTHORITIES=""
       - SSL_CERTIFICATE=""
       - SSL_KEY=""
@@ -58,14 +59,15 @@ services:
       - wazuh-manager-wodles:/var/ossec/wodles
       - filebeat-etc:/etc/filebeat
       - filebeat-var:/var/lib/filebeat
-      - ./config/filebeat/filebeat.yml:/etc/filebeat/filebeat.yml
+      - C:\Users\Sriram.s\Documents\GitHub\SecurityMonitoringApp\SecurityMonitoringApp\config\filebeat\filebeat.yml:/etc/filebeat/filebeat.yml
     command: >
-      bash -c "
-        until [ -f /etc/filebeat/filebeat.yml ]; do sleep 1; done &&
-        until [ -d /var/lib/filebeat/registry ]; do sleep 1; done &&
-        rm -f /var/lib/filebeat/registry/.filebeat.lock &&
-        /init
-      "
+        bash -c "
+          rm -rf /var/lib/filebeat/registry/.filebeat.lock 2>/dev/null || true &&
+          until [ -f /etc/filebeat/filebeat.yml ]; do sleep 1; done &&
+          until [ -d /var/lib/filebeat/registry ]; do sleep 1; done &&
+          rm -f /var/lib/filebeat/registry/.filebeat.lock &&
+          /init
+        "
     ports:
       - "1514:1514"
       - "1515:1515"
@@ -82,6 +84,20 @@ services:
       start_period: 120s
     networks:
       - wazuh
+
+  # filebeat:
+  #     image: docker.elastic.co/beats/filebeat:7.10.2
+  #     container_name: filebeat
+  #     user: root
+  #     volumes:
+  #       - ./config/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+  #       - wazuh-manager-logs:/var/ossec/logs:ro
+  #       - filebeat-data:/usr/share/filebeat/data
+  #     depends_on:
+  #       - wazuh.indexer
+  #       - wazuh.manager
+  #     networks:
+  #       - wazuh
 
   # Wazuh dashboard
   wazuh.dashboard:
@@ -194,12 +210,12 @@ services:
       - Graylog__Host=graylog
       - Graylog__Port=12201
     ports:
-      - "8080:80"
+      - "8070:80"
     depends_on:
       graylog:
         condition: service_healthy
-      wazuh.manager:
-        condition: service_healthy
+      # wazuh.manager:
+      #   condition: service_healthy
     restart: unless-stopped
     networks:
       - wazuh
@@ -221,6 +237,7 @@ volumes:
   mongodb-data:
   elasticsearch-data:
   graylog-data:
+  # filebeat-data:
 
 networks:
   wazuh:

@@ -1,5 +1,8 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 
 namespace SecurityMonitoringApp.Services
 {
@@ -54,7 +57,23 @@ namespace SecurityMonitoringApp.Services
         // Send custom log message
         public void LogCustomMessage(string message)
         {
-            _logger.LogInformation("Custom Graylog Message: {Message}", message);
+            //_logger.LogInformation("Custom Graylog Message: {Message}", message);
+   
+            using var client = new UdpClient();
+            var log = new
+            {
+                version = "1.1",
+                host = Dns.GetHostName(),
+                short_message = message,
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                level = 6,
+                _env = "dev"
+            };
+
+            var json = JsonSerializer.Serialize(log);
+            var bytes = Encoding.UTF8.GetBytes(json);
+            client.Send(bytes, bytes.Length, "graylog", 12201);
+
         }
 
         public async Task<bool> IsHealthy()
